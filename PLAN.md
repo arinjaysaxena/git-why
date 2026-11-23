@@ -20,8 +20,8 @@
 - [x] Function locator (`--fn`) for JS/TS/Python/Java by regex
 
 ### 2026-11-25 - provider
-- [ ] Remote detection (origin -> owner/repo)
-- [ ] GitHub provider: commit -> PRs, PR body, linked issues (injectable fetch)
+- [x] Remote detection (origin -> owner/repo)
+- [x] GitHub provider: commit -> PRs, PR body, linked issues (injectable fetch)
 
 ### 2026-11-26 - reviews + cache
 - [ ] Review comments and discussion collection
