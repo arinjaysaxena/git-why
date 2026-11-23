@@ -17,7 +17,7 @@
 
 ### 2026-11-24 - git layer
 - [x] Run git blame on a real temp repo; resolve line to commit
-- [ ] Function locator (`--fn`) for JS/TS/Python/Java by regex
+- [x] Function locator (`--fn`) for JS/TS/Python/Java by regex
 
 ### 2026-11-25 - provider
 - [ ] Remote detection (origin -> owner/repo)
