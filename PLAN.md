@@ -24,8 +24,8 @@
 - [x] GitHub provider: commit -> PRs, PR body, linked issues (injectable fetch)
 
 ### 2026-11-26 - reviews + cache
-- [ ] Review comments and discussion collection
-- [ ] On-disk cache keyed by repo+sha, `--no-cache`
+- [x] Review comments and discussion collection
+- [x] On-disk cache keyed by repo+sha, `--no-cache`
 
 ### 2026-11-27 - evidence
 - [ ] Evidence model + `--raw` renderer (offline)

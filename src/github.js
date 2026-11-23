@@ -44,9 +44,34 @@ export function parseLinkedIssues(text, ctx) {
 
 const trim = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}\n[truncated]` : (s ?? ''));
 
+const MAX_DISCUSSION = 40;
+
+/**
+ * Review comments, review summaries and conversation comments of a PR, oldest first.
+ * Returns [{ kind: 'review-comment'|'review'|'comment', author, body, path?, line?, createdAt, url }].
+ * Empty reviews (approvals with no text) are dropped; bodies are truncated.
+ */
+export async function collectDiscussion(gh, { owner, repo }, number) {
+  const [inline, reviews, convo] = await Promise.all([
+    gh.get(`/repos/${owner}/${repo}/pulls/${number}/comments`),
+    gh.get(`/repos/${owner}/${repo}/pulls/${number}/reviews`),
+    gh.get(`/repos/${owner}/${repo}/issues/${number}/comments`),
+  ]);
+  const items = [
+    ...(inline ?? []).map((c) => ({ kind: 'review-comment', author: c.user?.login, body: c.body, path: c.path, line: c.line ?? c.original_line ?? null, createdAt: c.created_at, url: c.html_url })),
+    ...(reviews ?? []).filter((r) => r.body?.trim()).map((r) => ({ kind: 'review', author: r.user?.login, body: r.body, state: r.state, createdAt: r.submitted_at, url: r.html_url })),
+    ...(convo ?? []).map((c) => ({ kind: 'comment', author: c.user?.login, body: c.body, createdAt: c.created_at, url: c.html_url })),
+  ];
+  return items
+    .filter((i) => i.body?.trim() && !/\[bot\]$/.test(i.author ?? ''))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+    .slice(0, MAX_DISCUSSION)
+    .map((i) => ({ ...i, body: trim(i.body, 1500) }));
+}
+
 /**
  * Collect PR and issue context for a commit sha.
- * Returns { pulls: [{ number, title, body, url, author, mergedAt, issues: [...] }] }.
+ * Returns { pulls: [{ number, title, body, url, author, mergedAt, issues: [...], discussion: [...] }] }.
  */
 export async function collectCommitContext(gh, { owner, repo }, sha) {
   const found = (await gh.get(`/repos/${owner}/${repo}/commits/${sha}/pulls`)) ?? [];
@@ -60,7 +85,8 @@ export async function collectCommitContext(gh, { owner, repo }, sha) {
       if (!issue || issue.pull_request) continue; // references to other PRs are not issues
       issues.push({ number: r.number, repo: `${r.owner}/${r.repo}`, title: issue.title, body: trim(issue.body, 2000), url: issue.html_url, state: issue.state, closes: r.closes });
     }
-    pulls.push({ number: full.number, title: full.title, body: trim(full.body), url: full.html_url, author: full.user?.login, mergedAt: full.merged_at ?? null, issues });
+    const discussion = await collectDiscussion(gh, { owner, repo }, full.number);
+    pulls.push({ number: full.number, title: full.title, body: trim(full.body), url: full.html_url, author: full.user?.login, mergedAt: full.merged_at ?? null, issues, discussion });
   }
   return { pulls };
 }
