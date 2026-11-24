@@ -32,7 +32,7 @@
 - [x] Walk back through earlier commits for the same lines (history chain)
 
 ### 2026-11-29 - narration
-- [ ] Provider-neutral LLM client + decision-history prompt
+- [x] Provider-neutral LLM client + decision-history prompt
 - [ ] CLI wiring end to end
 
 ### 2026-12-01 - quality
