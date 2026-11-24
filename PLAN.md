@@ -28,7 +28,7 @@
 - [x] On-disk cache keyed by repo+sha, `--no-cache`
 
 ### 2026-11-27 - evidence
-- [ ] Evidence model + `--raw` renderer (offline)
+- [x] Evidence model + `--raw` renderer (offline)
 - [x] Walk back through earlier commits for the same lines (history chain)
 
 ### 2026-11-29 - narration
