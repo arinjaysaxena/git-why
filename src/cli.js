@@ -6,7 +6,7 @@ import { repoRoot } from './git.js';
 import { locateFunction } from './locate.js';
 import { buildEvidence, renderRaw } from './evidence.js';
 import { detectRemote } from './remote.js';
-import { createGitHub, collectCommitContext } from './github.js';
+import { createGitHub, collectCommitContext, GitHubError } from './github.js';
 import { createCache, defaultCacheDir, withCache } from './cache.js';
 import { createLlm, loadLlmConfig } from './llm.js';
 import { explain } from './prompt.js';
@@ -88,7 +88,16 @@ async function collectContext(root, target, { env, fetchImpl, cache, log }) {
   const shas = [...new Set(buildEvidence(root, target).commits.map((c) => c.sha))];
   const context = {};
   for (const sha of shas) {
-    const { value, cached } = await withCache(store, remote, sha, () => collectCommitContext(gh, remote, sha));
+    let result;
+    try {
+      result = await withCache(store, remote, sha, () => collectCommitContext(gh, remote, sha));
+    } catch (e) {
+      if (!(e instanceof GitHubError)) throw e;
+      // Degrade to what git alone knows rather than failing the whole run; failures are never cached.
+      log(`warning: ${e.message} Continuing with local git history only.`);
+      break;
+    }
+    const { value, cached } = result;
     if (cached) log(`cache hit ${sha.slice(0, 7)}`);
     context[sha] = value;
   }

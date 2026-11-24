@@ -4,6 +4,7 @@ const API = 'https://api.github.com';
 export class GitHubError extends Error {
   constructor(message, status) {
     super(message);
+    this.name = 'GitHubError';
     this.status = status;
   }
 }
@@ -12,11 +13,21 @@ export function createGitHub({ token, fetchImpl = globalThis.fetch, baseUrl = AP
   async function get(path) {
     const headers = { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'git-why' };
     if (token) headers.authorization = `Bearer ${token}`;
-    const res = await fetchImpl(`${baseUrl}${path}`, { headers });
+    let res;
+    try {
+      res = await fetchImpl(`${baseUrl}${path}`, { headers });
+    } catch (e) {
+      throw new GitHubError(`Cannot reach GitHub (${e.message}).`, 0);
+    }
     if (res.status === 404) return null;
     if (!res.ok) {
       const remaining = res.headers?.get?.('x-ratelimit-remaining');
-      if (res.status === 403 && remaining === '0') throw new GitHubError('GitHub rate limit reached; set GITHUB_TOKEN to raise it.', 403);
+      if ((res.status === 403 && remaining === '0') || res.status === 429) {
+        const reset = Number(res.headers?.get?.('x-ratelimit-reset'));
+        const when = reset ? ` Resets at ${new Date(reset * 1000).toISOString()}.` : '';
+        const hint = token ? 'wait for the limit to reset' : 'set GITHUB_TOKEN to raise it';
+        throw new GitHubError(`GitHub rate limit reached; ${hint}.${when}`, res.status);
+      }
       if (res.status === 401) throw new GitHubError('GitHub rejected the token (401); check GITHUB_TOKEN.', 401);
       throw new GitHubError(`GitHub request failed (${res.status}) for ${path}`, res.status);
     }

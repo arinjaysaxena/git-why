@@ -36,8 +36,8 @@
 - [x] CLI wiring end to end
 
 ### 2026-12-01 - quality
-- [ ] Rate-limit and missing-token handling, error messages
-- [ ] Integration tests on temp repo with mocked provider
+- [x] Rate-limit and missing-token handling, error messages
+- [x] Integration tests on temp repo with mocked provider
 
 ### 2026-12-02 - ship
 - [ ] README (pitch, demo GIF steps, install, usage, how it works, roadmap)

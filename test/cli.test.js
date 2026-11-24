@@ -82,3 +82,52 @@ test('model failure surfaces a helpful error', async () => {
   assert.equal(code, 1);
   assert.match(o.lines.join('\n'), /Cannot reach the model/);
 });
+
+const noModel = { complete: async (m) => `answer based on: ${m[1].content.includes('PR #') ? 'pr' : 'git only'}` };
+const resp = (status, headers = {}) => ({ ok: false, status, json: async () => ({}), headers: { get: (k) => headers[k.toLowerCase()] ?? null } });
+
+test('rate limit degrades to git-only evidence with a warning and caches nothing', async () => {
+  const dir = repo(true);
+  const cacheDir = mkdtempSync(join(tmpdir(), 'gwc-'));
+  const logs = [];
+  const fetchImpl = async () => resp(403, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1800000000' });
+  const text = await run({ target: 'src/a.js:1', raw: false, cache: true }, { cwd: dir, env: { GIT_WHY_CACHE_DIR: cacheDir }, fetchImpl, llm: noModel, log: (m) => logs.push(m) });
+  assert.match(text, /git only/);
+  assert.ok(logs.some((l) => /GITHUB_TOKEN not set/.test(l)), 'missing token noted');
+  const warn = logs.find((l) => /warning: GitHub rate limit/.test(l));
+  assert.match(warn, /set GITHUB_TOKEN/);
+  assert.match(warn, /Resets at 2027-01-15/);
+  assert.match(warn, /local git history only/);
+  const again = [];
+  await run({ target: 'src/a.js:1', raw: false, cache: true }, { cwd: dir, env: { GIT_WHY_CACHE_DIR: cacheDir }, fetchImpl, llm: noModel, log: (m) => again.push(m) });
+  assert.ok(!again.some((l) => /cache hit/.test(l)), 'failure was not cached');
+});
+
+test('bad token and network failure also degrade with specific messages', async () => {
+  const dir = repo(true);
+  const env = { GIT_WHY_CACHE_DIR: mkdtempSync(join(tmpdir(), 'gwc-')), GITHUB_TOKEN: 'bad' };
+  const logs = [];
+  await run({ target: 'src/a.js:1', raw: false, cache: false }, { cwd: dir, env, fetchImpl: async () => resp(401), llm: noModel, log: (m) => logs.push(m) });
+  assert.ok(logs.some((l) => /rejected the token/.test(l)));
+  const logs2 = [];
+  const text = await run({ target: 'src/a.js:1', raw: false, cache: false }, { cwd: dir, env, fetchImpl: async () => { throw new Error('ENOTFOUND'); }, llm: noModel, log: (m) => logs2.push(m) });
+  assert.ok(logs2.some((l) => /Cannot reach GitHub \(ENOTFOUND\)/.test(l)));
+  assert.match(text, /git only/);
+});
+
+test('authenticated rate limit tells the user to wait, not to set a token', async () => {
+  const dir = repo(true);
+  const logs = [];
+  const env = { GIT_WHY_CACHE_DIR: mkdtempSync(join(tmpdir(), 'gwc-')), GITHUB_TOKEN: 't' };
+  await run({ target: 'src/a.js:1', raw: false, cache: false }, { cwd: dir, env, fetchImpl: async () => resp(429), llm: noModel, log: (m) => logs.push(m) });
+  assert.ok(logs.some((l) => /wait for the limit to reset/.test(l)));
+});
+
+test('a repo with no remote runs with a note and no GitHub calls', async () => {
+  const dir = repo(false);
+  const logs = [];
+  const fetchImpl = async () => { throw new Error('network used'); };
+  const text = await run({ target: 'src/a.js:1', raw: false, cache: false }, { cwd: dir, env: {}, fetchImpl, llm: noModel, log: (m) => logs.push(m) });
+  assert.match(text, /git only/);
+  assert.ok(logs.some((l) => /no GitHub context/.test(l)));
+});
