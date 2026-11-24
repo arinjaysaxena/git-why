@@ -33,7 +33,7 @@
 
 ### 2026-11-29 - narration
 - [x] Provider-neutral LLM client + decision-history prompt
-- [ ] CLI wiring end to end
+- [x] CLI wiring end to end
 
 ### 2026-12-01 - quality
 - [ ] Rate-limit and missing-token handling, error messages
