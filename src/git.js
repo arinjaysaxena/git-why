@@ -39,3 +39,18 @@ export function lineCount(cwd, file, rev = 'HEAD') {
   const text = git(cwd, ['show', `${rev}:${file}`]);
   return text === '' ? 0 : text.replace(/\n$/, '').split('\n').length;
 }
+
+/**
+ * History chain for a line range: every commit that touched lines [start, end] of `file`,
+ * newest first, following renames and moved code (`git log -L`). Returns [{ sha, subject, date }].
+ */
+export function historyChain(cwd, file, start, end = start, { rev = 'HEAD', max = 10 } = {}) {
+  const out = git(cwd, ['log', `-L${start},${end}:${file}`, '-s', `--max-count=${max}`, '--format=%H%x00%aI%x00%s', rev]);
+  return out
+    .split('\n')
+    .filter((l) => l.includes('\0'))
+    .map((l) => {
+      const [sha, date, ...subject] = l.split('\0');
+      return { sha, date, subject: subject.join('\0') };
+    });
+}

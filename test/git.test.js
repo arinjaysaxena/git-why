@@ -43,3 +43,18 @@ test('lineCount and repoRoot work, and errors are readable', () => {
   assert.throws(() => blameLine(dir, 'missing.js', 1), /git blame failed/);
   assert.throws(() => git(dir, ['bogus-cmd']), /git bogus-cmd failed/);
 });
+
+test('historyChain lists every commit that touched a line, newest first', async () => {
+  const { historyChain } = await import('../src/git.js');
+  const dir = makeRepo([
+    { message: 'Initial import', files: { 'src/a.js': 'const a = 1;\nconst b = 2;\nreturn a + b;\n' } },
+    { message: 'Unrelated change', files: { 'src/b.js': 'x\n' } },
+    { message: 'Retry on timeout', files: { 'src/a.js': 'const a = 1;\nconst b = retry(2);\nreturn a + b;\n' } },
+    { message: 'Add backoff', files: { 'src/a.js': 'const a = 1;\nconst b = retry(2, backoff);\nreturn a + b;\n' } },
+  ]);
+  const chain = historyChain(dir, 'src/a.js', 2);
+  assert.deepEqual(chain.map((c) => c.subject), ['Add backoff', 'Retry on timeout', 'Initial import']);
+  assert.match(chain[0].date, /^\d{4}-\d\d-\d\dT/);
+  assert.equal(historyChain(dir, 'src/a.js', 2, 2, { max: 2 }).length, 2);
+  assert.throws(() => historyChain(dir, 'src/missing.js', 1), /git log failed/);
+});
