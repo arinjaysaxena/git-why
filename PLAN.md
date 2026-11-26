@@ -1,46 +1,67 @@
 # git-why plan
 
-**Pitch.** git-why answers "why is this code like this?". Give it `file:line` or a function name and it walks blame, then the commit, the pull request that introduced it, the linked issue and the review comments, and writes a short decision history: why the code looks like this, what was tried, which constraints still apply. It uses any OpenAI-compatible endpoint for the write-up (local Ollama by default) and has an offline `--raw` mode that prints the collected evidence with no model at all.
+Status: v1 rebuild in progress (Go). Spec: [docs/DESIGN.md](docs/DESIGN.md).
 
-## v0.1 scope
-- CLI: `git-why <file>:<line> | <file> --fn <name> [--raw] [--no-cache]`
-- Blame via the local git binary (porcelain parser), follows line history
-- GitHub provider: commit -> PR -> linked issues -> review comments (REST, token via env)
-- On-disk cache so repeated runs are free
-- `--raw` offline mode: evidence only, no network, no model
-- Tests never need network or API keys (mock fetch, temp git repos)
+v0.1 was a Node prototype. v1 is a rewrite in Go as a single static binary, with a line-range history walker, a GitHub forge using GraphQL review threads, an evidence graph with relevance ranking, citation-checked narration and goreleaser packaging.
 
-## Schedule
-### 2026-11-23 - foundations
-- [x] Skeleton: ESM, node:test, eslint, CI
-- [x] Blame porcelain parser + target parsing (`file:line`)
+Rules for v1:
+- Work through the milestones in order; one or two tasks per working session, each a complete, tested change.
+- v1 ships only when **every acceptance criterion** below passes and not before 2026-12-04.
+- After v1 ships, keep going down the Roadmap section. There is always a next task.
 
-### 2026-11-24 - git layer
-- [x] Run git blame on a real temp repo; resolve line to commit
-- [x] Function locator (`--fn`) for JS/TS/Python/Java by regex
+## Milestone 1: Go foundation (2026-11-27)
+- [ ] Go module, `cmd/git-why` with cobra, Makefile, golangci-lint, CI (`go test -race`) on Linux, macOS, Windows
+- [ ] `internal/testrepo`: build temp git repos with scripted histories (commits, renames, moves, merges, squash merges)
+- [ ] `internal/target`: parse `file:line`, `file:a-b`, `file#Symbol`, `--fn`
 
-### 2026-11-25 - provider
-- [x] Remote detection (origin -> owner/repo)
-- [x] GitHub provider: commit -> PRs, PR body, linked issues (injectable fetch)
+## Milestone 2: git layer + history (2026-11-28)
+- [ ] `internal/gitx`: blame porcelain, `log -L` with sentinel format, show, remote parsing (https/ssh, GitHub Enterprise hosts)
+- [ ] `internal/history`: walk a line range back through commits, follow renames and moves, depth and since limits
+- [ ] Per-commit hunk restricted to the target range
 
-### 2026-11-26 - reviews + cache
-- [x] Review comments and discussion collection
-- [x] On-disk cache keyed by repo+sha, `--no-cache`
+## Milestone 3: symbol locator (2026-11-29)
+- [ ] `go/parser`-based locator for Go functions, methods and types
+- [ ] Brace/indent scanner for TS/JS, Java, Python and Rust with fixture files
+- [ ] Wire `--fn` and `#Symbol` into history
 
-### 2026-11-27 - evidence
-- [x] Evidence model + `--raw` renderer (offline)
-- [x] Walk back through earlier commits for the same lines (history chain)
+## Milestone 4: GitHub forge (2026-11-30)
+- [ ] REST: commit → PRs; issues; token discovery (`GITHUB_TOKEN`, `GH_TOKEN`, `gh auth token`)
+- [ ] GraphQL: PR body, closing issues, review threads with path/line/originalLine; filter to the target range
+- [ ] Rate-limit-aware limiter, bounded worker pool, graceful degradation; httptest fixtures
 
-### 2026-11-29 - narration
-- [x] Provider-neutral LLM client + decision-history prompt
-- [x] CLI wiring end to end
+## Milestone 5: cache + evidence (2026-12-01)
+- [ ] On-disk cache with ETag revalidation; `git why cache clear|stats`
+- [ ] Evidence graph types and builder; reference parsing (`#123`, `GH-123`, URLs)
+- [ ] Relevance ranking and pruning; `--explain`
 
-### 2026-12-01 - quality
-- [x] Rate-limit and missing-token handling, error messages
-- [x] Integration tests on temp repo with mocked provider
+## Milestone 6: output + narration (2026-12-02)
+- [ ] `--raw` terminal timeline and `--json` (schemaVersion 1, `docs/json.md`); golden tests
+- [ ] OpenAI-compatible streaming client (Ollama default), prompt with evidence IDs
+- [ ] Citation checker that drops or flags uncited sentences; no-model fallback to `--raw`
 
-### 2026-12-02 - ship
-- [x] README (pitch, demo GIF steps, install, usage, how it works, roadmap)
-- [x] LICENSE (MIT), polish, CI green
+## Milestone 7: parity + packaging (2026-12-03)
+- [ ] Feature parity with the Node prototype; delete the Node code (repo is Go only)
+- [ ] goreleaser config (linux/darwin/windows, amd64/arm64, checksums, Homebrew formula); snapshot build in CI
+- [ ] Opt-in e2e (`make e2e`) against public repositories
 
-Status: v0.1 shipped
+## Milestone 8: v1 release (2026-12-04)
+- [ ] README rewrite: pitch, real example, install (`go install`, Homebrew, binaries), CLI reference, configuration, how it works
+- [ ] CHANGELOG, tag v1.0.0, release notes
+
+### v1 acceptance criteria
+- [ ] No JavaScript left in the repo; `go vet` and golangci-lint clean
+- [ ] History walker passes fixture tests for renames, moves, merges and squash merges
+- [ ] Review threads are correctly filtered to the target lines (fixture with drifted `originalLine`)
+- [ ] Narration never outputs an uncited sentence (tested with a fake model)
+- [ ] Works with no token and with `--no-network`, with clear notices
+- [ ] goreleaser snapshot builds all targets in CI
+- [ ] CI green on Linux, macOS and Windows
+
+## Roadmap (after v1, keep working down this list)
+- [ ] GitLab forge (merge requests, discussions) behind the Forge interface
+- [ ] `git why --pr <n>`: explain every non-trivial change in a PR from its history
+- [ ] VS Code extension that renders `--json` as a hover card
+- [ ] Interactive TUI (bubbletea) to browse the evidence graph
+- [ ] Batch mode: `git why --hotspots` lists the most-discussed lines in a repo
+- [ ] Offline issue mirror: sync PRs and issues once, then fully offline
+- [ ] Benchmarks on large repositories and history-walk caching
