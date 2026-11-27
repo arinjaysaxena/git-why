@@ -46,7 +46,7 @@ func Locate(filePath, src, symbol string) (Range, error) {
 	case ".go":
 		return locateGo(filePath, src, symbol)
 	default:
-		return Range{}, fmt.Errorf("%w: %s", ErrUnsupported, path.Ext(filePath))
+		return locateScanned(filePath, src, symbol)
 	}
 }
 
@@ -58,9 +58,10 @@ func pick(symbol string, decls []Range) (Range, error) {
 			return d, nil
 		}
 	}
+	// A trailing part of the qualified name also matches: "greet", "Inner.go" for "Service.Inner.go".
 	var members []Range
 	for _, d := range decls {
-		if i := strings.LastIndex(d.Name, "."); i >= 0 && d.Name[i+1:] == symbol {
+		if strings.HasSuffix(d.Name, "."+symbol) {
 			members = append(members, d)
 		}
 	}

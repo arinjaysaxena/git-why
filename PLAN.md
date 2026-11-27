@@ -21,8 +21,8 @@ Rules for v1:
 
 ## Milestone 3: symbol locator (2026-11-29)
 - [x] `go/parser`-based locator for Go functions, methods and types
-- [ ] Brace/indent scanner for TS/JS, Java, Python and Rust with fixture files
-- [ ] Wire `--fn` and `#Symbol` into history
+- [x] Brace/indent scanner for TS/JS, Java, Python and Rust with fixture files
+- [x] Wire `--fn` and `#Symbol` into history
 
 ## Milestone 4: GitHub forge (2026-11-30)
 - [ ] REST: commit → PRs; issues; token discovery (`GITHUB_TOKEN`, `GH_TOKEN`, `gh auth token`)
