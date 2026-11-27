@@ -20,7 +20,7 @@ Rules for v1:
 - [x] Per-commit hunk restricted to the target range
 
 ## Milestone 3: symbol locator (2026-11-29)
-- [ ] `go/parser`-based locator for Go functions, methods and types
+- [x] `go/parser`-based locator for Go functions, methods and types
 - [ ] Brace/indent scanner for TS/JS, Java, Python and Rust with fixture files
 - [ ] Wire `--fn` and `#Symbol` into history
 
