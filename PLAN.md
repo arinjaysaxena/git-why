@@ -15,7 +15,7 @@ Rules for v1:
 - [x] `internal/target`: parse `file:line`, `file:a-b`, `file#Symbol`, `--fn`
 
 ## Milestone 2: git layer + history (2026-11-28)
-- [ ] `internal/gitx`: blame porcelain, `log -L` with sentinel format, show, remote parsing (https/ssh, GitHub Enterprise hosts)
+- [x] `internal/gitx`: blame porcelain, `log -L` with sentinel format, show, remote parsing (https/ssh, GitHub Enterprise hosts)
 - [ ] `internal/history`: walk a line range back through commits, follow renames and moves, depth and since limits
 - [ ] Per-commit hunk restricted to the target range
 
