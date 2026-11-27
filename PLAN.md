@@ -10,7 +10,7 @@ Rules for v1:
 - After v1 ships, keep going down the Roadmap section. There is always a next task.
 
 ## Milestone 1: Go foundation (2026-11-27)
-- [ ] Go module, `cmd/git-why` with cobra, Makefile, golangci-lint, CI (`go test -race`) on Linux, macOS, Windows
+- [x] Go module, `cmd/git-why` with cobra, Makefile, golangci-lint, CI (`go test -race`) on Linux, macOS, Windows
 - [ ] `internal/testrepo`: build temp git repos with scripted histories (commits, renames, moves, merges, squash merges)
 - [ ] `internal/target`: parse `file:line`, `file:a-b`, `file#Symbol`, `--fn`
 
