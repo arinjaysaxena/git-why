@@ -16,8 +16,8 @@ Rules for v1:
 
 ## Milestone 2: git layer + history (2026-11-28)
 - [x] `internal/gitx`: blame porcelain, `log -L` with sentinel format, show, remote parsing (https/ssh, GitHub Enterprise hosts)
-- [ ] `internal/history`: walk a line range back through commits, follow renames and moves, depth and since limits
-- [ ] Per-commit hunk restricted to the target range
+- [x] `internal/history`: walk a line range back through commits, follow renames and moves, depth and since limits
+- [x] Per-commit hunk restricted to the target range
 
 ## Milestone 3: symbol locator (2026-11-29)
 - [ ] `go/parser`-based locator for Go functions, methods and types

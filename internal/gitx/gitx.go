@@ -79,3 +79,28 @@ func (c *Client) RemoteURL(ctx context.Context, name string) (string, error) {
 	out, err := c.Run(ctx, "remote", "get-url", name)
 	return strings.TrimSpace(out), err
 }
+
+// FirstParentChain returns the SHAs reachable from rev by following only first
+// parents, newest first. These are the commits that sit directly on the
+// mainline: ordinary commits, squash merges and merge commits themselves.
+func (c *Client) FirstParentChain(ctx context.Context, rev string) ([]string, error) {
+	out, err := c.Run(ctx, "rev-list", "--first-parent", rev, "--")
+	if err != nil {
+		return nil, err
+	}
+	return strings.Fields(out), nil
+}
+
+// MergeInto finds the merge commit on rev's first-parent line that first
+// brought sha into rev. It returns "" when sha is not reachable through a merge
+// (it is on the mainline itself, or is not an ancestor of rev).
+func (c *Client) MergeInto(ctx context.Context, sha, rev string) (string, error) {
+	out, err := c.Run(ctx, "rev-list", "--first-parent", "--ancestry-path", "--merges", "--reverse", sha+".."+rev, "--")
+	if err != nil {
+		return "", err
+	}
+	if f := strings.Fields(out); len(f) > 0 {
+		return f[0], nil
+	}
+	return "", nil
+}
