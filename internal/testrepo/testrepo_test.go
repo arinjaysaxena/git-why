@@ -1,8 +1,10 @@
 package testrepo_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/arinjaysaxena/git-why/internal/testrepo"
 )
@@ -14,11 +16,15 @@ func TestLinearHistoryIsDeterministic(t *testing.T) {
 	r.Write("a.txt", "one\ntwo\n")
 	second := r.CommitAs("Maya", "maya@example.com", "second")
 
-	if got := r.Git("log", "--format=%an|%s|%aI", "--reverse"); got != strings.Join([]string{
-		"Test Author|first|2024-01-02T12:00:00+00:00",
-		"Maya|second|2024-01-03T12:00:00+00:00",
-	}, "\n") {
-		t.Errorf("unexpected log:\n%s", got)
+	// Compare Unix timestamps: git versions differ in how %aI spells UTC
+	// ("+00:00" vs "Z"), but the instant must be identical everywhere.
+	day := func(d int) int64 { return time.Date(2024, 1, d, 12, 0, 0, 0, time.UTC).Unix() }
+	want := strings.Join([]string{
+		fmt.Sprintf("Test Author|first|%d", day(2)),
+		fmt.Sprintf("Maya|second|%d", day(3)),
+	}, "\n")
+	if got := r.Git("log", "--format=%an|%s|%at", "--reverse"); got != want {
+		t.Errorf("unexpected log:\n%s\nwant:\n%s", got, want)
 	}
 	if p := r.Parents(second); len(p) != 1 || p[0] != first {
 		t.Errorf("parents of second = %v, want [%s]", p, first)
