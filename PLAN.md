@@ -11,8 +11,8 @@ Rules for v1:
 
 ## Milestone 1: Go foundation (2026-11-27)
 - [x] Go module, `cmd/git-why` with cobra, Makefile, golangci-lint, CI (`go test -race`) on Linux, macOS, Windows
-- [ ] `internal/testrepo`: build temp git repos with scripted histories (commits, renames, moves, merges, squash merges)
-- [ ] `internal/target`: parse `file:line`, `file:a-b`, `file#Symbol`, `--fn`
+- [x] `internal/testrepo`: build temp git repos with scripted histories (commits, renames, moves, merges, squash merges)
+- [x] `internal/target`: parse `file:line`, `file:a-b`, `file#Symbol`, `--fn`
 
 ## Milestone 2: git layer + history (2026-11-28)
 - [ ] `internal/gitx`: blame porcelain, `log -L` with sentinel format, show, remote parsing (https/ssh, GitHub Enterprise hosts)
