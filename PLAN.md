@@ -26,7 +26,7 @@ Rules for v1:
 
 ## Milestone 4: GitHub forge (2026-11-30)
 - [x] REST: commit → PRs; issues; token discovery (`GITHUB_TOKEN`, `GH_TOKEN`, `gh auth token`)
-- [ ] GraphQL: PR body, closing issues, review threads with path/line/originalLine; filter to the target range
+- [x] GraphQL: PR body, closing issues, review threads with path/line/originalLine; filter to the target range
 - [x] Rate-limit-aware limiter, bounded worker pool, graceful degradation; httptest fixtures
 
 ## Milestone 5: cache + evidence (2026-12-01)

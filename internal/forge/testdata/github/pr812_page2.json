@@ -1,0 +1,9 @@
+{"data":{"repository":{"pullRequest":{
+ "number":812,"title":"Cap retries to avoid thundering herd","body":"Fixes #799","url":"https://github.com/o/r/pull/812","merged":true,"mergedAt":"2025-03-11T10:00:00Z",
+ "author":{"login":"maya"},
+ "closingIssuesReferences":{"nodes":[]},
+ "comments":{"nodes":[]},
+ "reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[
+  {"path":"internal/retry/backoff.go","line":42,"startLine":40,"originalLine":42,"originalStartLine":40,"isResolved":false,"isOutdated":false,"diffHunk":"@@ -40,3 +40,3 @@","comments":{"nodes":[
+    {"body":"Please keep the jitter","url":"https://github.com/o/r/pull/812#r2","createdAt":"2025-03-10T11:00:00Z","author":{"login":"sam"}}]}}
+ ]}}}}}

@@ -38,6 +38,8 @@ type Issue struct {
 type Forge interface {
 	// PullRequestsForCommit returns the pull requests that contain a commit.
 	PullRequestsForCommit(ctx context.Context, sha string) ([]PullRequest, error)
+	// PullRequestDetails fetches a PR with closing issues, comments and review threads.
+	PullRequestDetails(ctx context.Context, number int) (PullRequestDetails, error)
 	// Issue fetches one issue by number.
 	Issue(ctx context.Context, number int) (Issue, error)
 }
