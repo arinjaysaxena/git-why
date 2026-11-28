@@ -30,7 +30,7 @@ Rules for v1:
 - [x] Rate-limit-aware limiter, bounded worker pool, graceful degradation; httptest fixtures
 
 ## Milestone 5: cache + evidence (2026-12-01)
-- [ ] On-disk cache with ETag revalidation; `git why cache clear|stats`
+- [x] On-disk cache with ETag revalidation; `git why cache clear|stats`
 - [ ] Evidence graph types and builder; reference parsing (`#123`, `GH-123`, URLs)
 - [ ] Relevance ranking and pruning; `--explain`
 

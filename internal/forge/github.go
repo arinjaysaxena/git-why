@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/arinjaysaxena/git-why/internal/cache"
 )
 
 // GitHub implements Forge against the GitHub REST (and GraphQL) APIs.
@@ -20,6 +22,8 @@ type GitHub struct {
 	graphqlURL  string
 	http        *http.Client
 	lim         *limiter
+	cache       *cache.Cache // optional; REST GETs are revalidated with ETags
+	host        string       // cache key scope, e.g. "github.com"
 }
 
 // Options configures a GitHub client.
@@ -31,6 +35,7 @@ type Options struct {
 	HTTPClient *http.Client // optional
 	BaseURL    string       // optional REST root override (tests)
 	GraphQLURL string       // optional GraphQL endpoint override (tests)
+	Cache      *cache.Cache // optional response cache
 }
 
 // NewGitHub builds a client. Enterprise hosts use /api/v3 and /api/graphql.
@@ -38,11 +43,15 @@ func NewGitHub(o Options) (*GitHub, error) {
 	if o.Owner == "" || o.Repo == "" {
 		return nil, errors.New("github: owner and repo are required")
 	}
-	g := &GitHub{owner: o.Owner, repo: o.Repo, token: o.Token, http: o.HTTPClient, lim: newLimiter()}
+	g := &GitHub{owner: o.Owner, repo: o.Repo, token: o.Token, http: o.HTTPClient, lim: newLimiter(), cache: o.Cache}
 	if g.http == nil {
 		g.http = &http.Client{Timeout: 20 * time.Second}
 	}
 	host := strings.ToLower(o.Host)
+	g.host = host
+	if g.host == "" {
+		g.host = "github.com"
+	}
 	switch {
 	case o.BaseURL != "":
 		g.baseURL = strings.TrimRight(o.BaseURL, "/")
@@ -91,44 +100,62 @@ func (g *GitHub) newRequest(ctx context.Context, method, rawURL string, body io.
 	return req, nil
 }
 
-// do executes a request, honouring the limiter. Rate-limit and auth failures
-// are wrapped so errors.Is(err, ErrUnavailable) holds.
-func (g *GitHub) do(ctx context.Context, req *http.Request, out any) error {
+// send performs the request through the rate limiter and returns the raw
+// response. Transport failures are wrapped so errors.Is(err, ErrUnavailable) holds.
+func (g *GitHub) send(ctx context.Context, req *http.Request) (int, []byte, http.Header, error) {
 	if err := g.lim.wait(ctx); err != nil {
-		return fmt.Errorf("github: rate limit exhausted: %w", err)
+		return 0, nil, nil, fmt.Errorf("github: rate limit exhausted: %w", err)
 	}
 	resp, err := g.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return 0, nil, nil, ctx.Err()
 		}
-		return fmt.Errorf("github: %w: %w", ErrUnavailable, err)
+		return 0, nil, nil, fmt.Errorf("github: %w: %w", ErrUnavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	g.lim.observe(resp.Header)
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	if err != nil {
-		return fmt.Errorf("github: read body: %w", err)
+		return 0, nil, nil, fmt.Errorf("github: read body: %w", err)
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		if out == nil {
-			return nil
-		}
-		if err := json.Unmarshal(data, out); err != nil {
-			return fmt.Errorf("github: decode response: %w", err)
-		}
-		return nil
-	}
-	ae := &APIError{Status: resp.StatusCode, Message: apiMessage(data)}
+	return resp.StatusCode, data, resp.Header, nil
+}
+
+// statusError converts a non-2xx response into an error. Rate-limit, auth and
+// server failures are wrapped so errors.Is(err, ErrUnavailable) holds.
+func statusError(status int, data []byte) error {
+	ae := &APIError{Status: status, Message: apiMessage(data)}
 	switch {
-	case resp.StatusCode == http.StatusTooManyRequests,
-		resp.StatusCode == http.StatusUnauthorized,
-		resp.StatusCode == http.StatusForbidden:
-		return fmt.Errorf("%w: %w", ErrUnavailable, ae)
-	case resp.StatusCode >= 500:
+	case status == http.StatusTooManyRequests,
+		status == http.StatusUnauthorized,
+		status == http.StatusForbidden,
+		status >= 500:
 		return fmt.Errorf("%w: %w", ErrUnavailable, ae)
 	}
 	return ae
+}
+
+func decode(data []byte, out any) error {
+	if out == nil {
+		return nil
+	}
+	if err := json.Unmarshal(data, out); err != nil {
+		return fmt.Errorf("github: decode response: %w", err)
+	}
+	return nil
+}
+
+// do executes a request and decodes a 2xx JSON body into out.
+func (g *GitHub) do(ctx context.Context, req *http.Request, out any) error {
+	status, data, _, err := g.send(ctx, req)
+	if err != nil {
+		return err
+	}
+	if status >= 200 && status < 300 {
+		return decode(data, out)
+	}
+	return statusError(status, data)
 }
 
 func apiMessage(data []byte) string {
@@ -145,12 +172,34 @@ func apiMessage(data []byte) string {
 	return s
 }
 
+// get issues a REST GET. With a cache configured, a stored ETag is sent as
+// If-None-Match; a 304 reply is served from the cache (and, for authenticated
+// clients, does not count against the rate limit). Cache write failures never
+// fail the request.
 func (g *GitHub) get(ctx context.Context, path string, out any) error {
 	req, err := g.newRequest(ctx, http.MethodGet, g.baseURL+path, nil)
 	if err != nil {
 		return err
 	}
-	return g.do(ctx, req, out)
+	key := g.host + "/" + strings.TrimPrefix(path, "/repos/")
+	cached, have := g.cache.Get(key)
+	if have && cached.ETag != "" {
+		req.Header.Set("If-None-Match", cached.ETag)
+	}
+	status, data, hdr, err := g.send(ctx, req)
+	if err != nil {
+		return err
+	}
+	switch {
+	case status == http.StatusNotModified && have:
+		return decode(cached.Body, out)
+	case status >= 200 && status < 300:
+		if etag := hdr.Get("ETag"); etag != "" {
+			_ = g.cache.Put(key, cache.Entry{ETag: etag, Body: data})
+		}
+		return decode(data, out)
+	}
+	return statusError(status, data)
 }
 
 func (g *GitHub) repoPath(parts ...string) string {

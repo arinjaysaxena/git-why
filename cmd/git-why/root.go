@@ -99,6 +99,7 @@ func newRootCmd(stdout, stderr io.Writer, analyze analyzeFunc) *cobra.Command {
 	}
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
+	cmd.AddCommand(newCacheCmd())
 	cmd.SetVersionTemplate("git-why {{.Version}} (" + commit + ")\n")
 
 	f := cmd.Flags()
